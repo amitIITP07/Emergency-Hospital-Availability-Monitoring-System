@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HospTrack Architecture</title>
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#ffffff;--ink:#1a252f;--muted:#5b6672;--line:#d5dae1;
+  --brand:#c0392b;--brand-soft:#fbeae8;
+  --client:#e8f1fb;--client-b:#3b82c4;
+  --api:#fdf1e3;--api-b:#d9822b;
+  --mw:#f3e8fb;--mw-b:#8e5bc0;
+  --rt:#e5f6ee;--rt-b:#2e9e6b;
+  --db:#e6f5f0;--db-b:#1f8a5b;
+  --ext:#f1f1f4;--ext-b:#7a8290;
+  --warn:#fff4d6;--warn-b:#d1a21b;--bad:#fde7e7;--bad-b:#c0392b;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141a;--panel:#171e26;--ink:#e6ebf0;--muted:#98a4b1;--line:#2b3541;
+  --brand:#ef6a5b;--brand-soft:#2e1a19;
+  --client:#14283d;--client-b:#5aa3e6;--api:#33230f;--api-b:#f0a24f;
+  --mw:#291a38;--mw-b:#b388e0;--rt:#10291e;--rt-b:#4cc592;
+  --db:#0f2a21;--db-b:#3cc08a;--ext:#1d242d;--ext-b:#8f9aa8;
+  --warn:#332a0d;--warn-b:#e0b84a;--bad:#341a1a;--bad-b:#ef6a5b;}}
+:root[data-theme="dark"]{
+  --bg:#0f141a;--panel:#171e26;--ink:#e6ebf0;--muted:#98a4b1;--line:#2b3541;
+  --brand:#ef6a5b;--brand-soft:#2e1a19;
+  --client:#14283d;--client-b:#5aa3e6;--api:#33230f;--api-b:#f0a24f;
+  --mw:#291a38;--mw-b:#b388e0;--rt:#10291e;--rt-b:#4cc592;
+  --db:#0f2a21;--db-b:#3cc08a;--ext:#1d242d;--ext-b:#8f9aa8;
+  --warn:#332a0d;--warn-b:#e0b84a;--bad:#341a1a;--bad-b:#ef6a5b;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:20px 24px 0;max-width:1280px;margin:auto}
+h1{margin:0;font-size:22px}
+h1 span{color:var(--brand)}
+.sub{color:var(--muted);margin:4px 0 14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab:focus-visible,.theme:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.theme{margin-left:auto;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
+main{max-width:1280px;margin:auto;padding:18px 24px 48px}
+section{display:none}section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{font-size:20px;display:block}.stat span{color:var(--muted);font-size:12px}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;fill:var(--ink)}
+.t-s{font-size:11px;fill:var(--muted)!important}.t-m{font-size:12px}.t-b{font-size:13px;font-weight:700}.t-h{font-size:12px;font-weight:700;letter-spacing:.06em}
+.mono{font-family:var(--mono)!important}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;color:var(--muted);font-size:12px}
+.legend i{display:inline-block;width:22px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+input,select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)}
+td.p{font-family:var(--mono);font-size:12.5px;word-break:break-all}
+#realtime td.p:first-child{white-space:nowrap;word-break:normal}
+.tbl{overflow-x:auto}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11.5px;font-weight:700;border:1px solid}
+.m-GET{color:#2e7d32;border-color:#2e7d32}.m-POST{color:#1565c0;border-color:#1565c0}.m-PUT{color:#b26a00;border-color:#b26a00}.m-DELETE{color:#c62828;border-color:#c62828}
+.a-public{background:var(--warn);border-color:var(--warn-b);color:var(--ink)}
+.a-user{background:var(--client);border-color:var(--client-b);color:var(--ink)}
+.a-admin{background:var(--mw);border-color:var(--mw-b);color:var(--ink)}
+.a-manual{background:var(--api);border-color:var(--api-b);color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.col h3{margin:0 0 2px;font-size:15px;font-family:var(--mono)}
+.col .d{color:var(--muted);font-size:12px;margin-bottom:8px}
+.col ul{margin:0;padding:0;list-style:none;font-family:var(--mono);font-size:12px}
+.col li{padding:2px 0;border-top:1px dashed var(--line)}
+.col li em{color:var(--muted);font-style:normal}
+.ref{color:var(--db-b);font-weight:700}
+.flow ol{margin:8px 0 0;padding-left:22px}.flow li{margin:4px 0}
+.flow code,.fd code,td code{font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.fd{border-left:4px solid;border-radius:8px;padding:10px 14px;margin-bottom:10px;background:var(--panel);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.fd.hi{border-left-color:var(--bad-b)}.fd.md{border-left-color:var(--warn-b)}.fd.lo{border-left-color:var(--ext-b)}
+.fd h4{margin:0 0 3px;font-size:14px}.fd p{margin:2px 0;color:var(--muted)}
+.fd .w{color:var(--ink)}
+.note{color:var(--muted);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>HospTrack</span> — System Architecture</h1>
+  <p class="sub">Emergency Hospital Availability Monitoring System · derived from <code>server.js</code>, <code>routes/</code>, <code>models/</code>, <code>utils/</code>, <code>middleware/</code> and the HTML dashboards in <code>hospital-backend-01</code></p>
+  <div class="bar" role="tablist" aria-label="Architecture views">
+    <button class="tab" role="tab" aria-selected="true" data-t="overview">Overview</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="routes">API routes</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="realtime">Socket.IO</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="data">MongoDB collections</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="flows">Key flows</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="findings">Code vs README</button>
+    <button class="theme" id="theme" aria-label="Toggle theme">Theme</button>
+  </div>
+</header>
+<main>
+
+<!-- OVERVIEW -->
+<section id="overview" class="on">
+  <div class="stats">
+    <div class="stat"><b>56</b><span>HTTP endpoints (53 in routers + 3 in server.js)</span></div>
+    <div class="stat"><b>8</b><span>Express routers</span></div>
+    <div class="stat"><b>7</b><span>Mongoose models / collections</span></div>
+    <div class="stat"><b>5</b><span>Socket.IO events emitted</span></div>
+    <div class="stat"><b>2</b><span>Messaging providers (Fast2SMS, Resend)</span></div>
+  </div>
+  <div class="card">
+  <svg viewBox="0 0 1200 900" role="img" aria-labelledby="ovt ovd">
+<title id="ovt">HospTrack architecture overview</title>
+<desc id="ovd">Static frontend on GitHub Pages calls an Express and Socket.IO backend on Render. Routers use Mongoose models over MongoDB Atlas and call Fast2SMS and Resend through utility modules. reCAPTCHA is verified from the auth routes.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<text x="20" y="28" class="t-h t-s">CLIENT · GitHub Pages (static HTML/JS)</text>
+<text x="338" y="28" class="t-h t-s">BACKEND · Render · Node.js + Express 5</text>
+<text x="914" y="28" class="t-h t-s">DATA &amp; SERVICES</text>
+<rect x="12" y="40" width="270" height="560" rx="14" fill="none" stroke="var(--line)" stroke-dasharray="5 4"/>
+<rect x="322" y="40" width="540" height="840" rx="14" fill="none" stroke="var(--line)" stroke-dasharray="5 4"/>
+<rect x="898" y="40" width="290" height="840" rx="14" fill="none" stroke="var(--line)" stroke-dasharray="5 4"/>
+<rect x="28" y="56" width="238" height="72" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="78" class="t-b">index.html + script.js</text><text x="40" y="96" class="t-s">Login / register · reCAPTCHA v3</text><text x="40" y="112" class="t-s">Google sign-in via Firebase Auth</text>
+<rect x="28" y="140" width="238" height="100" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="162" class="t-b">patient-dashboard.html</text><text x="40" y="180" class="t-s">Beds · blood search · doctors · slots</text><text x="40" y="196" class="t-s">Booking, QR ticket, reviews, profile</text><text x="40" y="212" class="t-s">Socket.IO client · Leaflet · Chart.js</text><text x="40" y="228" class="t-s">Google Maps directions link</text>
+<rect x="28" y="252" width="238" height="84" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="274" class="t-b">hospital-dashboard.html</text><text x="40" y="292" class="t-s">Update beds + blood stock</text><text x="40" y="308" class="t-s">SMS tools (alerts, reminder, OTP)</text><text x="40" y="324" class="t-s">Chart.js</text>
+<rect x="28" y="348" width="238" height="84" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="370" class="t-b">admin-dashboard.html</text><text x="40" y="388" class="t-s">Users · settings · emergencies</text><text x="40" y="404" class="t-s">Approve / reject hospitals · new users</text><text x="40" y="420" class="t-s">/api/health status panel</text>
+<rect x="28" y="444" width="238" height="56" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="466" class="t-b">hospital-register.html</text><text x="40" y="484" class="t-s">Public application form</text>
+<rect x="28" y="512" width="238" height="70" rx="10" fill="var(--client)" stroke="var(--client-b)"/><text x="40" y="534" class="t-b">appointment-verify.html</text><text x="40" y="552" class="t-s">QR landing · verify + check-in</text><text x="40" y="568" class="t-s">(public, no JWT)</text>
+<text x="338" y="64" class="t-b" style="display:none"></text>
+<rect x="338" y="56" width="508" height="64" rx="10" fill="var(--mw)" stroke="var(--mw-b)"/><text x="350" y="78" class="t-b">Global middleware (server.js)</text><text x="350" y="96" class="t-s mono">cors() · express.json() · Swagger UI at /api-docs</text><text x="350" y="112" class="t-s mono">GET / · GET /api/health (Mongo + Socket.IO status)</text>
+<rect x="338" y="132" width="508" height="64" rx="10" fill="var(--mw)" stroke="var(--mw-b)"/><text x="350" y="154" class="t-b">middleware/authMiddleware.js</text><text x="350" y="172" class="t-s mono">verifyToken (Bearer JWT → req.user) · adminOnly</text><text x="350" y="188" class="t-s mono">hospitalOnly is defined but not used on any route</text>
+<rect x="338" y="208" width="508" height="92" rx="10" fill="var(--rt)" stroke="var(--rt-b)"/><text x="350" y="230" class="t-b">Socket.IO server  (app.set("io", io), cors "*")</text><text x="350" y="248" class="t-s">Handles only connect / disconnect — no rooms, no auth</text><text x="350" y="264" class="t-s mono">emits: bed-updated · hospital-added · hospital-approved</text><text x="350" y="280" class="t-s mono">       hospital-deleted · appointment-booked</text>
+<text x="338" y="324" class="t-h t-s">ROUTERS  (mounted in server.js)</text>
+<rect x="338" y="334" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="350" y="356" class="t-b mono">/api/auth</text><text x="350" y="374" class="t-s">12 · register, login, google, profile</text>
+<rect x="598" y="334" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="356" class="t-b mono">/api/hospitals</text><text x="610" y="374" class="t-s">10 · beds, apply, approve, update-beds</text>
+<rect x="338" y="402" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="350" y="424" class="t-b mono">/api/appointments</text><text x="350" y="442" class="t-s">9 · slots, book, verify, checkin</text>
+<rect x="598" y="402" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="424" class="t-b mono">/api/doctors</text><text x="610" y="442" class="t-s">5 · list, get, add, update, delete</text>
+<rect x="338" y="470" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="350" y="492" class="t-b mono">/api/emergency</text><text x="350" y="510" class="t-s">5 · alert, all, by hospital, update</text>
+<rect x="598" y="470" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="492" class="t-b mono">/api/blood</text><text x="610" y="510" class="t-s">3 · update stock, search, by hospital</text>
+<rect x="338" y="538" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="350" y="560" class="t-b mono">/api/reviews</text><text x="350" y="578" class="t-s">3 · add, by hospital, my</text>
+<rect x="598" y="538" width="248" height="58" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="560" class="t-b mono">/api/sms</text><text x="610" y="578" class="t-s">6 · emergency, bed, reminder, OTP</text>
+<text x="338" y="624" class="t-h t-s">UTILS</text>
+<text x="350" y="652" class="t-s">sendSMS.js ← appointments, sms</text><text x="350" y="670" class="t-s">sendEmail.js ← auth, hospitals, appointments</text>
+<rect x="598" y="634" width="248" height="56" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="656" class="t-b mono">utils/sendSMS.js</text><text x="610" y="674" class="t-s mono">axios · FAST2SMS_KEY · 6 templates</text>
+<rect x="598" y="700" width="248" height="56" rx="10" fill="var(--api)" stroke="var(--api-b)"/><text x="610" y="722" class="t-b mono">utils/sendEmail.js</text><text x="610" y="740" class="t-s mono">resend SDK · RESEND_API_KEY</text>
+<rect x="338" y="776" width="508" height="88" rx="10" fill="var(--db)" stroke="var(--db-b)"/><text x="350" y="798" class="t-b">Mongoose 9 models  (models/*.js)</text><text x="350" y="816" class="t-s mono">User · Hospital · Doctor · Appointment · Emergency</text><text x="350" y="832" class="t-s mono">Review · Settings</text><text x="350" y="848" class="t-s">connect(process.env.MONGO_URI) — process exits if unset</text>
+<rect x="914" y="56" width="258" height="64" rx="10" fill="var(--ext)" stroke="var(--ext-b)"/><text x="926" y="78" class="t-b">Fast2SMS</text><text x="926" y="96" class="t-s mono">POST fast2sms.com/dev/bulkV2</text><text x="926" y="112" class="t-s">alerts · OTP · booking confirmations</text>
+<rect x="914" y="132" width="258" height="64" rx="10" fill="var(--ext)" stroke="var(--ext-b)"/><text x="926" y="154" class="t-b">Resend</text><text x="926" y="172" class="t-s mono">from onboarding@resend.dev</text><text x="926" y="188" class="t-s">booking · hospital approval · new-user alert</text>
+<rect x="914" y="208" width="258" height="64" rx="10" fill="var(--ext)" stroke="var(--ext-b)"/><text x="926" y="230" class="t-b">Google reCAPTCHA v3</text><text x="926" y="248" class="t-s mono">siteverify · RECAPTCHA_SECRET</text><text x="926" y="264" class="t-s">called from /api/auth register + login</text>
+<text x="914" y="300" class="t-h t-s">BROWSER-SIDE SERVICES</text>
+<rect x="914" y="310" width="258" height="46" rx="10" fill="var(--ext)" stroke="var(--ext-b)" stroke-dasharray="4 3"/><text x="926" y="332" class="t-b">Firebase Auth (Google sign-in)</text><text x="926" y="350" class="t-s">→ /api/auth/google-login issues the JWT</text>
+<rect x="914" y="366" width="258" height="46" rx="10" fill="var(--ext)" stroke="var(--ext-b)" stroke-dasharray="4 3"/><text x="926" y="388" class="t-b">Leaflet + OpenStreetMap tiles</text><text x="926" y="406" class="t-s">Google Maps only as a directions link</text>
+<rect x="914" y="422" width="258" height="46" rx="10" fill="var(--ext)" stroke="var(--ext-b)" stroke-dasharray="4 3"/><text x="926" y="444" class="t-b">api.qrserver.com</text><text x="926" y="462" class="t-s">QR image for the verify link</text>
+<rect x="914" y="478" width="258" height="46" rx="10" fill="var(--ext)" stroke="var(--ext-b)" stroke-dasharray="4 3"/><text x="926" y="500" class="t-b">Chart.js · Google Translate</text><text x="926" y="518" class="t-s">CDN scripts on dashboards</text>
+<rect x="914" y="640" width="258" height="220" rx="10" fill="var(--db)" stroke="var(--db-b)"/><text x="926" y="662" class="t-b">MongoDB Atlas</text><text x="926" y="680" class="t-s mono">users</text><text x="1050" y="680" class="t-s mono">hospitals</text><text x="926" y="696" class="t-s mono">doctors</text><text x="1050" y="696" class="t-s mono">appointments</text><text x="926" y="712" class="t-s mono">emergencies</text><text x="1050" y="712" class="t-s mono">reviews</text><text x="926" y="728" class="t-s mono">settings (key: "global")</text><text x="926" y="744" class="t-s"></text><text x="926" y="760" class="t-s">Relations (ObjectId refs)</text><text x="926" y="776" class="t-s">Appointment → User · Doctor · Hospital</text><text x="926" y="792" class="t-s">Doctor, Emergency, Review → Hospital</text><text x="926" y="808" class="t-s">Review → User · Appointment</text><text x="926" y="824" class="t-s">Emergency → Doctor</text><text x="926" y="840" class="t-s">Hospital.managedBy ↔ User.hospitalId</text>
+<g fill="none" stroke-width="2">
+<path d="M266 92 H296 M266 190 H296 M266 294 H296 M266 390 H296 M266 472 H296 M266 547 H296 M296 92 V547" stroke="var(--client-b)"/>
+<path d="M296 440 H336" stroke="var(--client-b)" marker-end="url(#a)"/>
+<path d="M338 254 H314 V215 H268" stroke="var(--rt-b)" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<path d="M592 336 V302" stroke="var(--rt-b)" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<path d="M592 596 V774" stroke="var(--db-b)" marker-end="url(#a)"/>
+<path d="M722 596 V632" stroke="var(--api-b)" marker-end="url(#a)"/>
+<path d="M846 662 H866 V88 H912" stroke="var(--ext-b)" marker-end="url(#a)"/>
+<path d="M846 728 H878 V164 H912" stroke="var(--ext-b)" marker-end="url(#a)"/>
+<path d="M846 820 H912" stroke="var(--db-b)" stroke-width="2.5" marker-end="url(#a)"/>
+</g>
+<text x="290" y="622" class="t-s" text-anchor="end">REST + Bearer JWT (HTTPS) →</text>
+<text x="20" y="700" class="t-s">Hosting</text>
+<text x="20" y="718" class="t-s mono">frontend: github.io/hospital-backend-01</text>
+<text x="20" y="736" class="t-s mono">backend:  onrender.com (hospital-backend-01)</text>
+<text x="20" y="768" class="t-s">Env vars read by the code</text>
+<text x="20" y="786" class="t-s mono">MONGO_URI · PORT · JWT_SECRET</text>
+<text x="20" y="804" class="t-s mono">FAST2SMS_KEY · RESEND_API_KEY</text><text x="20" y="822" class="t-s mono">RECAPTCHA_SECRET</text>
+</svg>
+  <div class="legend">
+    <span><i style="border-color:var(--client-b)"></i>HTTPS / REST + Bearer JWT</span>
+    <span><i style="border-color:var(--rt-b);border-top-style:dashed"></i>Socket.IO push</span>
+    <span><i style="border-color:var(--db-b)"></i>Routers → models → Atlas</span>
+    <span><i style="border-color:var(--ext-b)"></i>Outbound API calls</span>
+    <span><i style="border-color:var(--api-b)"></i>Router → util</span>
+  </div>
+  </div>
+</section>
+
+<!-- ROUTES -->
+<section id="routes">
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter by path…" aria-label="Filter routes">
+    <select id="rf" aria-label="Router"><option value="">All routers</option></select>
+    <select id="af" aria-label="Access"><option value="">All access levels</option><option>public</option><option>user</option><option>admin</option><option>manual</option></select>
+  </div>
+  <div class="tbl"><table><thead><tr><th>Method</th><th>Path</th><th>Access</th><th>Does</th><th>Side effects</th></tr></thead><tbody id="rt"></tbody></table></div>
+  <p class="note"><b>Access:</b> <span class="pill a-public">public</span> no auth · <span class="pill a-user">user</span> <code>verifyToken</code> (any role) · <span class="pill a-admin">admin</span> <code>verifyToken + adminOnly</code> · <span class="pill a-manual">manual</span> JWT verified inside the handler. No route uses <code>hospitalOnly</code>; a few handlers check the role inline (noted in the last column), but bed, blood and emergency writes only require a valid token.</p>
+</section>
+
+<!-- REALTIME -->
+<section id="realtime">
+  <div class="tbl"><table><thead><tr><th>Event</th><th>Emitted from</th><th>Payload</th><th>Client listener</th></tr></thead><tbody>
+    <tr><td class="p">bed-updated</td><td class="p">PUT /api/hospitals/update-beds/:id</td><td>hospitalId, name, availableBeds, icuAvailable, oxygenAvailable, ventilatorAvailable, emergencyAvailable, updatedAt</td><td>patient-dashboard.html</td></tr>
+    <tr><td class="p">hospital-added</td><td class="p">POST /api/hospitals/add</td><td>full hospital document</td><td>patient-dashboard.html</td></tr>
+    <tr><td class="p">hospital-deleted</td><td class="p">DELETE /api/hospitals/:id</td><td>{ hospitalId }</td><td>patient-dashboard.html</td></tr>
+    <tr><td class="p">hospital-approved</td><td class="p">PUT /api/hospitals/approve/:id</td><td>full hospital document</td><td><b>none found</b></td></tr>
+    <tr><td class="p">appointment-booked</td><td class="p">POST /api/appointments/book</td><td>hospitalId, patientName, doctorName, date, time</td><td><b>none found</b></td></tr>
+  </tbody></table></div>
+  <div class="card" style="margin-top:14px">
+  <svg viewBox="0 0 900 250" role="img" aria-label="Bed update realtime path">
+    <defs><marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+    <rect x="20" y="30" width="190" height="70" rx="10" fill="var(--client)" stroke="var(--client-b)"/>
+    <text x="32" y="56" class="t-b">Hospital dashboard</text><text x="32" y="76" class="t-s mono">PUT /update-beds/:id</text>
+    <rect x="355" y="30" width="190" height="70" rx="10" fill="var(--api)" stroke="var(--api-b)"/>
+    <text x="367" y="56" class="t-b">hospitalRoutes</text><text x="367" y="76" class="t-s">findByIdAndUpdate → Hospital</text>
+    <rect x="690" y="30" width="190" height="70" rx="10" fill="var(--db)" stroke="var(--db-b)"/>
+    <text x="702" y="56" class="t-b">MongoDB Atlas</text><text x="702" y="76" class="t-s mono">hospitals</text>
+    <rect x="355" y="150" width="190" height="70" rx="10" fill="var(--rt)" stroke="var(--rt-b)"/>
+    <text x="367" y="176" class="t-b">io.emit('bed-updated')</text><text x="367" y="196" class="t-s">broadcast to every socket</text>
+    <rect x="20" y="150" width="190" height="70" rx="10" fill="var(--client)" stroke="var(--client-b)"/>
+    <text x="32" y="176" class="t-b">Patient dashboard</text><text x="32" y="196" class="t-s">socket.on('bed-updated')</text>
+    <g fill="none" stroke-width="2">
+      <path d="M210 65 H353" stroke="var(--client-b)" marker-end="url(#b)"/>
+      <path d="M545 65 H688" stroke="var(--db-b)" marker-end="url(#b)"/>
+      <path d="M450 100 V148" stroke="var(--rt-b)" marker-end="url(#b)"/>
+      <path d="M355 185 H212" stroke="var(--rt-b)" stroke-dasharray="6 4" marker-end="url(#b)"/>
+    </g>
+  </svg></div>
+  <p class="note">Patient dashboard connects with <code>io(API_URL, { timeout: 5000, reconnectionAttempts: 2 })</code>, so it gives up quickly if Render is cold-starting and the page falls back to REST data from <code>GET /api/hospitals/beds</code>.</p>
+</section>
+
+<!-- DATA -->
+<section id="data"><div class="grid" id="cols"></div>
+<p class="note">Collection names are Mongoose defaults (lowercase plural of the model name). All schemas use <code>timestamps: true</code>. <code>Settings</code> keeps a single document keyed <code>"global"</code>.</p></section>
+
+<!-- FLOWS -->
+<section id="flows"><div class="grid" id="fl"></div></section>
+
+<!-- FINDINGS -->
+<section id="findings">
+  <p class="sub" style="margin-top:0">Where the code differs from the README or from what the UI implies. Worth knowing before this diagram is used in a presentation or review.</p>
+  <div id="fd"></div>
+</section>
+
+</main>
+<script>
+const R=[
+ // auth
+ ["POST","/api/auth/register","auth","public","Create patient (bcrypt), optional reCAPTCHA check","reCAPTCHA siteverify; new-user email to admin if Settings.emailNotifications"],
+ ["GET","/api/auth/verify/:token","auth","public","Email verification link handler","Updates User.isVerified (verification mail currently disabled)"],
+ ["POST","/api/auth/login","auth","public","Email + password, optional reCAPTCHA","Returns JWT (7d) with id, email, role"],
+ ["POST","/api/auth/create-user","auth","manual","Admin creates admin/hospital users","JWT checked inside handler"],
+ ["PUT","/api/auth/link-hospital","auth","manual","Admin links a user to a hospital","User.hospitalId"],
+ ["POST","/api/auth/google-login","auth","public","Find or create user from Firebase Google identity","Returns backend JWT"],
+ ["GET","/api/auth/profile","auth","user","Current user profile",""],
+ ["PUT","/api/auth/profile","auth","user","Update profile fields",""],
+ ["PUT","/api/auth/change-password","auth","user","Verify old password, store new bcrypt hash",""],
+ ["GET","/api/auth/users","auth","admin","List all users",""],
+ ["GET","/api/auth/settings","auth","admin","Read global settings","Creates default Settings doc if missing"],
+ ["PUT","/api/auth/settings","auth","admin","Toggle emailNotifications","Upserts Settings {key:'global'}"],
+ // hospitals
+ ["GET","/api/hospitals/beds","hospitals","public","Approved + active hospitals with bed counts, sorted by availableBeds",""],
+ ["GET","/api/hospitals/pending","hospitals","admin","Hospitals awaiting approval",""],
+ ["GET","/api/hospitals/all","hospitals","admin","All hospitals",""],
+ ["GET","/api/hospitals/:id","hospitals","public","One hospital",""],
+ ["POST","/api/hospitals/apply","hospitals","public","Self-service hospital application","Creates Hospital with approvalStatus = pending"],
+ ["PUT","/api/hospitals/approve/:id","hospitals","admin","Approve application","Creates hospital User, sets managedBy; Socket hospital-approved; Resend approval email"],
+ ["PUT","/api/hospitals/reject/:id","hospitals","admin","Reject with reason","Hospital.rejectionReason"],
+ ["POST","/api/hospitals/add","hospitals","admin","Admin adds hospital directly","Socket hospital-added"],
+ ["PUT","/api/hospitals/update-beds/:id","hospitals","user","Update bed / ICU / oxygen / ventilator availability","Socket bed-updated"],
+ ["DELETE","/api/hospitals/:id","hospitals","admin","Delete hospital","Socket hospital-deleted"],
+ // appointments
+ ["GET","/api/appointments/my","appointments","user","Current patient's appointments",""],
+ ["GET","/api/appointments/slots/:doctorId","appointments","public","15 fixed slots for a date, marks booked ones",""],
+ ["GET","/api/appointments/verify/:id","appointments","public","Return appointment (used by QR landing page)",""],
+ ["PUT","/api/appointments/checkin/:id","appointments","public","Set status confirmed on QR scan","Writes checkedInAt (not in schema)"],
+ ["POST","/api/appointments/book","appointments","user","Book slot (409 if doctor/date/time taken)","Fast2SMS to patient + hospital; Socket appointment-booked; Resend email"],
+ ["PUT","/api/appointments/update/:id","appointments","user","Set status (pending / confirmed / completed / cancelled) and notes","400 on invalid status"],
+ ["DELETE","/api/appointments/cancel/:id","appointments","user","Soft-cancel: sets status = cancelled","Record is kept"],
+ ["GET","/api/appointments/all","appointments","user","All appointments, populated","Role check inside handler: admin only (403 otherwise)"],
+ ["GET","/api/appointments/hospital-appointments","appointments","user","Appointments for the caller's hospital","Role check inside handler: hospital only (403 otherwise)"],
+ // doctors
+ ["GET","/api/doctors","doctors","public","List doctors (hospitalId filter)",""],
+ ["GET","/api/doctors/:id","doctors","public","One doctor",""],
+ ["POST","/api/doctors/add","doctors","admin","Add doctor",""],
+ ["PUT","/api/doctors/update/:id","doctors","admin","Update doctor",""],
+ ["DELETE","/api/doctors/:id","doctors","admin","Delete doctor",""],
+ // emergency
+ ["POST","/api/emergency/alert","emergency","user","Create Emergency case (status pending)","DB write only"],
+ ["GET","/api/emergency/all","emergency","user","All emergency cases",""],
+ ["GET","/api/emergency/hospital/:hospitalId","emergency","user","Cases for one hospital",""],
+ ["PUT","/api/emergency/update/:id","emergency","user","Update status / ambulance / doctor",""],
+ ["DELETE","/api/emergency/:id","emergency","user","Delete case",""],
+ // blood
+ ["PUT","/api/blood/update/:hospitalId","blood","user","Replace Hospital.bloodBank (8 groups)",""],
+ ["GET","/api/blood/search","blood","public","Approved hospitals with stock > 0 for ?group (optional ?city)",""],
+ ["GET","/api/blood/hospital/:hospitalId","blood","public","Full blood stock of one hospital",""],
+ // reviews
+ ["POST","/api/reviews/add","reviews","user","Add 1–5 rating + comment",""],
+ ["GET","/api/reviews/hospital/:hospitalId","reviews","public","Reviews for a hospital",""],
+ ["GET","/api/reviews/my","reviews","user","Current patient's reviews",""],
+ // sms
+ ["POST","/api/sms/emergency","sms","user","Emergency alert SMS","Fast2SMS"],
+ ["POST","/api/sms/bed-alert","sms","user","Bed-critical SMS","Fast2SMS"],
+ ["POST","/api/sms/appointment-reminder","sms","user","Reminder SMS","Fast2SMS"],
+ ["POST","/api/sms/send-otp","sms","public","Generate 6-digit OTP and SMS it","Fast2SMS; OTP is also returned in the JSON response"],
+ ["POST","/api/sms/welcome","sms","admin","Welcome SMS","Fast2SMS"],
+ ["POST","/api/sms/test","sms","public","Send test SMS (comment says admin only)","Fast2SMS"],
+ // server.js
+ ["GET","/","server","public","HTML landing with link to docs",""],
+ ["GET","/api/health","server","public","Backend / DB / Socket.IO status",""],
+ ["GET","/api-docs","server","public","Swagger UI (OpenAPI 3, bearerAuth)",""]
+];
+const C=[
+ ["users","User.js","Accounts for all three roles",["name","email (unique)","password (bcrypt)","role: admin | hospital | patient","isActive","hospitalId → Hospital","isVerified, verifyToken, verifyTokenExpiry","phone, address, age, gender, bloodGroup, profilePhoto"]],
+ ["hospitals","Hospital.js","Beds, blood bank, approval workflow",["name, address, city (required)","phone, email, description","totalBeds / availableBeds","icuTotal / icuAvailable","oxygenTotal / oxygenAvailable","ventilatorTotal / ventilatorAvailable","emergencyAvailable, isActive","bloodBank {A+ A- B+ B- O+ O- AB+ AB-}","approvalStatus: pending | approved | rejected","rejectionReason, appliedAt, approvedAt","latitude, longitude, contactPassword","managedBy → User"]],
+ ["doctors","Doctor.js","Doctors per hospital",["name, email (unique sparse), phone","specialization (enum, 14)","registrationNumber (unique sparse)","experience, qualification","hospitalId → Hospital","status: available | busy | in-surgery | off-duty","availableDays, availableTime {start,end}","totalPatients, todayPatients, isActive"]],
+ ["appointments","Appointment.js","Bookings and QR check-in",["patientId → User","patientName, patientPhone","doctorId → Doctor, doctorName","hospitalId → Hospital","department (enum), appointmentType","appointmentDate, appointmentTime","status: pending | confirmed | completed | cancelled","symptoms, notes, cancelReason"]],
+ ["emergencies","Emergency.js","SOS cases",["patientName, patientAge, patientGender, patientPhone","emergencyType (enum, 9)","severity: critical | high | medium","location, latitude, longitude","hospitalId → Hospital","assignedDoctor → Doctor","status: pending | dispatched | in-treatment | resolved | cancelled","ambulanceDispatched, ambulanceNumber","notes, resolvedAt"]],
+ ["reviews","Review.js","Hospital ratings",["patientId → User, patientName","hospitalId → Hospital","appointmentId → Appointment (optional)","rating 1–5","comment"]],
+ ["settings","Settings.js","Single global config doc",["key: 'global' (unique)","emailNotifications (default false)"]]
+];
+const F=[
+ ["Patient books an appointment","POST /api/appointments/book",[
+  "Patient dashboard loads doctors (<code>GET /api/doctors</code>) and slots (<code>GET /slots/:doctorId?date=</code>).",
+  "<code>verifyToken</code> authenticates; handler rejects a taken doctor + date + time with 409.",
+  "Creates an <code>appointments</code> document (status <code>pending</code>).",
+  "Fast2SMS texts the patient (if phone given) and the hospital phone.",
+  "<code>io.emit('appointment-booked')</code> broadcast.",
+  "Resend confirmation email.",
+  "Frontend renders a QR code (api.qrserver.com) that points to <code>appointment-verify.html?id=…</code>."]],
+ ["QR check-in at reception","GET /verify/:id → PUT /checkin/:id",[
+  "Reception scans the QR; <code>appointment-verify.html</code> opens.",
+  "Page calls the public <code>verify</code> endpoint and shows the appointment.",
+  "Check-in sets status to <code>confirmed</code> (and writes <code>checkedInAt</code>, which the schema does not define)."]],
+ ["Hospital onboarding","apply → approve",[
+  "<code>hospital-register.html</code> posts to <code>/api/hospitals/apply</code> → Hospital with <code>approvalStatus: pending</code>.",
+  "Admin dashboard lists <code>/pending</code>, then calls <code>PUT /approve/:id</code>.",
+  "Server creates a <code>role: hospital</code> User, links <code>managedBy</code>, flips status to approved.",
+  "<code>io.emit('hospital-approved')</code> and Resend approval email with credentials."]],
+ ["Live bed availability","PUT /update-beds/:id",[
+  "Hospital user submits new counts from the hospital dashboard.",
+  "Hospital document updated in Atlas.",
+  "<code>io.emit('bed-updated')</code> reaches every connected patient dashboard.",
+  "If the socket never connected, the patient page still has data from <code>GET /api/hospitals/beds</code>."]],
+ ["Login (password, reCAPTCHA, Google)","/api/auth/*",[
+  "Browser gets a reCAPTCHA v3 token and sends it with register/login; backend calls Google <code>siteverify</code>.",
+  "Password path: <code>bcrypt.compare</code> then <code>jwt.sign</code> (7 days).",
+  "Google path: Firebase popup sign-in in the browser, then <code>POST /google-login</code> creates/finds the user and returns the same kind of JWT.",
+  "Dashboard is chosen by <code>user.role</code>; later calls send <code>Authorization: Bearer</code>."]],
+ ["Emergency case + SMS","/api/emergency/alert, /api/sms/emergency",[
+  "<code>POST /api/emergency/alert</code> only inserts an <code>emergencies</code> document.",
+  "SMS is a separate call: <code>POST /api/sms/emergency</code> (used from the hospital dashboard) → Fast2SMS.",
+  "Admin dashboard reads cases from <code>/api/emergency/all</code>."]]
+];
+const esc=s=>s;
+// routes table
+const rt=document.getElementById('rt'),q=document.getElementById('q'),rf=document.getElementById('rf'),af=document.getElementById('af');
+[...new Set(R.map(r=>r[2]))].forEach(x=>{const o=document.createElement('option');o.textContent=x;rf.appendChild(o)});
+function drawR(){
+  const t=q.value.toLowerCase();
+  rt.innerHTML=R.filter(r=>(!t||r[1].toLowerCase().includes(t))&&(!rf.value||r[2]===rf.value)&&(!af.value||r[3]===af.value))
+   .map(r=>`<tr><td><span class="pill m-${r[0]}">${r[0]}</span></td><td class="p">${r[1]}</td><td><span class="pill a-${r[3]}">${r[3]}</span></td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('');
+}
+[q,rf,af].forEach(e=>e.addEventListener('input',drawR));drawR();
+// collections
+document.getElementById('cols').innerHTML=C.map(c=>`<div class="card col"><h3>${c[0]}</h3><div class="d">${c[1]} — ${c[2]}</div><ul>${c[3].map(f=>`<li>${f.replace(/→ (\w+)/g,'<span class="ref">→ $1</span>')}</li>`).join('')}</ul></div>`).join('');
+// flows
+document.getElementById('fl').innerHTML=F.map(f=>`<div class="card flow"><b>${f[0]}</b><div class="note" style="margin-top:2px"><code>${f[1]}</code></div><ol>${f[2].map(s=>`<li>${s}</li>`).join('')}</ol></div>`).join('');
+// findings
+const N=[
+ ["hi","Emergency alert does not notify hospitals by itself","README and the UI say the 3 nearest hospitals get an SMS. <code>POST /api/emergency/alert</code> only stores an <code>Emergency</code> document; there is no distance query or SMS call in it. I found no call to this endpoint in the HTML files, and the only SMS callers of <code>/api/sms/emergency</code> are in the hospital dashboard. The nearest-3 fan-out is not implemented server-side."],
+ ["hi","Default password is hard-coded and echoed","<code>PUT /api/hospitals/approve/:id</code> creates the hospital login with <code>contactPassword || \"Hospital@123\"</code> but always emails and returns <code>\"Hospital@123\"</code> as the password. The README also lists demo credentials in plain text."],
+ ["hi","Public SMS endpoints can spend Fast2SMS credit","<code>/api/sms/send-otp</code> and <code>/api/sms/test</code> have no auth (the test route's comment says admin only), and <code>send-otp</code> returns the OTP in the response body, so it cannot work as a verification step."],
+ ["md","hospitalOnly is never used","Bed updates, blood stock and emergency create/update/delete only require <code>verifyToken</code>, so any logged-in user (including a patient) can call them. Hospital ownership is not checked against <code>req.user.hospitalId</code>. Only <code>/appointments/all</code> and <code>/hospital-appointments</code> check the role inline."],
+ ["md","JWT secret fallback","<code>authRoutes.js</code> signs and verifies with <code>process.env.JWT_SECRET || \"default_secret\"</code>, while <code>authMiddleware.js</code> uses the env var only. If the variable is unset, tokens from login would fail on every protected route."],
+ ["md","Resend sends everything to one address","<code>sendEmail.js</code> hard-codes <code>ADMIN_EMAIL</code> as the recipient and uses the <code>onboarding@resend.dev</code> sender, so patients and hospitals do not receive the emails; the README's \"email verification via Resend\" is also switched off in <code>/register</code> (users are created verified)."],
+ ["md","Socket.IO is broadcast-only","Two of five events (<code>hospital-approved</code>, <code>appointment-booked</code>) have no listener in the frontend, there are no rooms, and <code>appointment-booked</code> is sent to everyone although it contains patient name and doctor."],
+ ["lo","Google Maps is only a link","The map is Leaflet with OpenStreetMap tiles; Google Maps appears only as a directions deep link (<code>google.com/maps/dir/?api=1</code>), not an embedded API."],
+ ["lo","checkedInAt is not in the Appointment schema","<code>PUT /checkin/:id</code> sets it, but with Mongoose strict mode the field is silently dropped."],
+ ["lo","Swagger covers only annotated routes","<code>swagger-jsdoc</code> reads <code>@swagger</code> comments in <code>routes/*.js</code>; routes without those comments (for example parts of emergency) are not in <code>/api-docs</code>."]
+];
+document.getElementById('fd').innerHTML=N.map(n=>`<div class="fd ${n[0]}"><h4>${n[1]}</h4><p class="w">${n[2]}</p></div>`).join('');
+// tabs
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+}));
+// theme
+const root=document.documentElement,tb=document.getElementById('theme');
+try{const s=localStorage.getItem('hosptrack-theme');if(s)root.dataset.theme=s}catch(e){}
+tb.addEventListener('click',()=>{
+  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+  root.dataset.theme=dark?'light':'dark';
+  try{localStorage.setItem('hosptrack-theme',root.dataset.theme)}catch(e){}
+});
+</script>
+</body>
+</html>
